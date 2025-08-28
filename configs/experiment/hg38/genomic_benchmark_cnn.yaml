@@ -48,7 +48,7 @@ optimizer:
   weight_decay: 0.1
 
 train:
-  gpu_mem: ${eval:"round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000)"}
+  gpu_mem: 480000 #${eval:"__import__('subprocess').run('which nvidia-smi', shell=True, capture_output=True).returncode == 0 and round(float(__import__('subprocess').check_output('nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits', shell=True).strip().decode()) / 1000) or 16.0"}
   seed: 2222
   global_batch_size: ${dataset.batch_size}
   cross_validation: true

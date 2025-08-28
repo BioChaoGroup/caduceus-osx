@@ -119,16 +119,6 @@ class HG38(SequenceDataset):
     def init_datasets(self):
         """Init the datasets (separate from the tokenizer)"""
 
-        # delete old datasets to free memory
-        if hasattr(self, "dataset_train"):
-            self.dataset_train.fasta.seqs.close()
-            del self.dataset_train.fasta.seqs
-
-        # delete old datasets to free memory
-        if hasattr(self, "dataset_test"):
-            self.dataset_test.fasta.seqs.close()
-            del self.dataset_test.fasta.seqs
-
         # Create all splits: torch datasets
         self.dataset_train, self.dataset_val, self.dataset_test = [
             HG38Dataset(split=split,

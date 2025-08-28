@@ -45,9 +45,9 @@ class Perplexity(Metric):
 
     def __init__(self, **kwargs: Dict[str, Any]):
         super().__init__(**kwargs)
-        self.add_state("total_log_probs", default=torch.tensor(0.0, dtype=torch.float64),
+        self.add_state("total_log_probs", default=torch.tensor(0.0, dtype=torch.float32),
                        dist_reduce_fx="sum")
-        self.add_state("count", default=torch.tensor(0, dtype=torch.int64), dist_reduce_fx="sum")
+        self.add_state("count", default=torch.tensor(0, dtype=torch.int32), dist_reduce_fx="sum")
 
         self.loss_fn = CrossEntropyLoss()
 
@@ -62,7 +62,7 @@ class Perplexity(Metric):
         count = target.numel()
         if loss is None:
             loss = self.loss_fn(preds, target)
-        self.total_log_probs += loss.double() * count
+        self.total_log_probs += loss.float() * count
         self.count += count
 
     def compute(self) -> Tensor:
@@ -87,7 +87,7 @@ class NumTokens(Metric):
 
     def __init__(self, **kwargs: Dict[str, Any]):
         super().__init__(**kwargs)
-        self.add_state("count", default=torch.tensor(0, dtype=torch.int64), dist_reduce_fx="sum",
+        self.add_state("count", default=torch.tensor(0, dtype=torch.int32), dist_reduce_fx="sum",
                        persistent=True)  # We want the count to be saved to state-dict
         if parallel_state is not None and not parallel_state.is_unitialized():
             self.tensor_parallel_world_size = parallel_state.get_tensor_model_parallel_world_size()

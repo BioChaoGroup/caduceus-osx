@@ -167,6 +167,13 @@ class RCPSMambaBlock(nn.Module):
             residual: hidden_states = Mixer(LN(residual)).
             inference_params: inference parameters for mixer.
         """
+        # If fused_add_norm is enabled but Triton kernels are not available, fall back to non-fused
+        if self.fused_add_norm and (layer_norm_fn is None or rms_norm_fn is None):
+            self.fused_add_norm = False
+            # Also update the norm to use the non-fused wrapper
+            if not isinstance(self.norm, RCPSAddNormWrapper):
+                self.norm = RCPSAddNormWrapper(self.norm)
+
         if not self.fused_add_norm:
             hidden_states, residual = self.norm(hidden_states, residual=residual, prenorm=True)
             if self.residual_in_fp32:

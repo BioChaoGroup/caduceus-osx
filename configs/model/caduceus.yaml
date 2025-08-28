@@ -20,7 +20,7 @@ config:
     bias: false
     use_fast_path: true
   rms_norm: true
-  fused_add_norm: true
+  fused_add_norm: false
   residual_in_fp32: false
   pad_vocab_size_multiple: 8
   # Not in original MambaConfig, but default arg in create_block in mamba_ssm repo; used in layer norm

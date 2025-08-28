@@ -22,7 +22,7 @@ encoder: null
 decoder: null
 
 loader:
-  num_workers: ${eval:"len(__import__('os').sched_getaffinity(0))"}
+  num_workers: ${eval:"__import__('os').cpu_count()"}
   pin_memory: True
   drop_last: True  # There's enough data and epochs, ignore the edge case
   # shuffle: True

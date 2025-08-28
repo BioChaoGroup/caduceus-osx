@@ -58,9 +58,15 @@ def create_block(
         "bidirectional_weight_tie": bidirectional_weight_tie,
     }
     mixer_cls = partial(BiMambaWrapper, layer_idx=layer_idx, **ssm_cfg, **bidirectional_kwargs, **factory_kwargs)
-    norm_cls = partial(
-        nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
-    )
+    
+    # Handle case where RMSNorm is not available (e.g., on macOS)
+    if rms_norm and RMSNorm is None:
+        # Fall back to LayerNorm if RMSNorm is not available
+        norm_cls = partial(nn.LayerNorm, eps=norm_epsilon, **factory_kwargs)
+    else:
+        norm_cls = partial(
+            nn.LayerNorm if not rms_norm else RMSNorm, eps=norm_epsilon, **factory_kwargs
+        )
     block_cls = RCPSMambaBlock if rcps else Block
     # mambav2 compatibility
     if "mlp_cls" in inspect.signature(block_cls.__init__).parameters:
@@ -173,7 +179,6 @@ class CaduceusMixerModel(nn.Module):
         super().__init__()
         factory_kwargs = {"device": device, "dtype": dtype}
 
-        self.fused_add_norm = config.fused_add_norm
         self.rcps = config.rcps
         self.residual_in_fp32 = config.residual_in_fp32
 
@@ -184,9 +189,14 @@ class CaduceusMixerModel(nn.Module):
         # Add -> LN -> Attn / MLP / Mixer, returning both the residual branch (output of Add) and
         # the main branch (output of MLP / Mixer). The model definition is unchanged.
         # This is for performance reason: we can fuse add + layer_norm.
-        if config.fused_add_norm:
-            if layer_norm_fn is None or rms_norm_fn is None:
-                raise ImportError("Failed to import Triton LayerNorm / RMSNorm kernels")
+        # If Triton kernels are not available (e.g., on macOS), disable fused_add_norm
+        if config.fused_add_norm and (layer_norm_fn is None or rms_norm_fn is None):
+            # Disable fused_add_norm since Triton is not available
+            self.fused_add_norm = False
+            # Also update the config to avoid issues in block creation
+            config.fused_add_norm = False
+        else:
+            self.fused_add_norm = config.fused_add_norm
 
         self.layers = nn.ModuleList(
             [
@@ -208,9 +218,14 @@ class CaduceusMixerModel(nn.Module):
             ]
         )
 
-        norm_f = (nn.LayerNorm if not config.rms_norm else RMSNorm)(
-            config.d_model, eps=config.norm_epsilon, **factory_kwargs
-        )
+        # Handle case where RMSNorm is not available (e.g., on macOS)
+        if config.rms_norm and RMSNorm is None:
+            # Fall back to LayerNorm if RMSNorm is not available
+            norm_f = nn.LayerNorm(config.d_model, eps=config.norm_epsilon, **factory_kwargs)
+        else:
+            norm_f = (nn.LayerNorm if not config.rms_norm else RMSNorm)(
+                config.d_model, eps=config.norm_epsilon, **factory_kwargs
+            )
         self.norm_f = norm_f if (config.fused_add_norm or not config.rcps) else RCPSAddNormWrapper(norm_f)
 
     def forward(self, input_ids, inputs_embeds=None, output_hidden_states=False):

@@ -27,15 +27,17 @@ class FastaInterval:
         fasta_file = Path(fasta_file)
         assert fasta_file.exists(), "Path to fasta file must exist!"
 
-        self.seqs = Fasta(str(fasta_file))
+        self.fasta_file = str(fasta_file)
         self.return_seq_indices = return_seq_indices
         self.rc_aug = rc_aug
 
         # calc len of each chromosome in fasta file, store in dict
         self.chr_lens = {}
-
-        for chr_name in self.seqs.keys():
-            self.chr_lens[chr_name] = len(self.seqs[chr_name])
+        
+        # Open file temporarily to get chromosome lengths
+        with Fasta(self.fasta_file) as seqs:
+            for chr_name in seqs.keys():
+                self.chr_lens[chr_name] = len(seqs[chr_name])
 
     @staticmethod
     def _compute_interval(start, end, max_length, i_shift):
@@ -59,7 +61,6 @@ class FastaInterval:
         """
         max_length passed from dataset, not from init
         """
-        chromosome = self.seqs[chr_name]
         chromosome_length = self.chr_lens[chr_name]
 
         start, end = self._compute_interval(start, end, max_length, i_shift)
@@ -81,7 +82,10 @@ class FastaInterval:
             start = chromosome_length - max_length
             end = chromosome_length
 
-        seq = str(chromosome[start:end])
+        # Open the FASTA file each time to avoid pickling issues
+        with Fasta(self.fasta_file) as seqs:
+            chromosome = seqs[chr_name]
+            seq = str(chromosome[start:end])
 
         if self.rc_aug and coin_flip():
             seq = string_reverse_complement(seq)
