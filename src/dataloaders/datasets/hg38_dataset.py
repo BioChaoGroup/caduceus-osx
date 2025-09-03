@@ -111,6 +111,7 @@ class HG38Dataset(torch.utils.data.Dataset):
             return_seq_indices=False,
             rc_aug=False,
             return_augs=False,
+            device=None,
     ):
         self.mlm = mlm
         self.mlm_probability = mlm_probability
@@ -152,6 +153,9 @@ class HG38Dataset(torch.utils.data.Dataset):
             return_seq_indices=return_seq_indices,
             rc_aug=rc_aug
         )
+        
+        # Store device for tensor creation
+        self.device = device
 
     @staticmethod
     def replace_value(x, old_value, new_value):
@@ -209,8 +213,11 @@ class HG38Dataset(torch.utils.data.Dataset):
             else:
                 seq = seq["input_ids"][1:-1]  # remove both special tokens
 
-        # convert to tensor
-        seq = torch.LongTensor(seq)
+        # convert to tensor with device awareness
+        if self.device is not None:
+            seq = torch.tensor(seq, dtype=torch.long, device=self.device)
+        else:
+            seq = torch.LongTensor(seq)
 
         # replace N token with a pad token, so we can ignore it in the loss
         seq = self.replace_value(seq, self.tokenizer._vocab_str_to_int["N"], self.tokenizer.pad_token_id)

@@ -1,4 +1,4 @@
 # Caduceus downloaded form HF
 _name_: hf_caduceus
-pretrained_model_name_or_path: null
+pretrained_model_name_or_path: "/Users/ciao/.cache/huggingface/hub/models--kuleshov-group--caduceus-ph_seqlen-131k_d_model-256_n_layer-16/snapshots/aa843f6d59724cddce28b6ebd075bfce2b6396ff"
 trust_remote_code: true

@@ -79,7 +79,7 @@ def test_rcps_embedding(batch_size, seq_len, d_model, dtype):
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
 def test_rcps_wrapper(batch_size, seq_len, d_model, dtype):
     # Set tolerance
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rtol, atol = (6e-4, 2e-3) if dtype == torch.float32 else (3e-3, 5e-3)
     if dtype == torch.bfloat16:
         rtol, atol = 3e-2, 5e-2
@@ -115,7 +115,7 @@ def test_rcps_wrapper(batch_size, seq_len, d_model, dtype):
 @pytest.mark.parametrize("dtype", [torch.float16])
 def test_rcps_add_norm_wrapper(batch_size, seq_len, d_model, prenorm, dtype):
     # Set tolerance
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rtol, atol = (6e-4, 2e-3) if dtype == torch.float32 else (3e-3, 5e-3)
     if dtype == torch.bfloat16:
         rtol, atol = 3e-2, 5e-2
@@ -154,7 +154,7 @@ def test_rcps_add_norm_wrapper(batch_size, seq_len, d_model, prenorm, dtype):
 @pytest.mark.parametrize("dtype", [torch.float16])
 def test_rcps_mamba_block_wrapper(batch_size, seq_len, d_model, bidirectional, fused_add_norm, dtype):
     # Set tolerance
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rtol, atol = (6e-4, 2e-3) if dtype == torch.float32 else (3e-3, 5e-3)
     if dtype == torch.bfloat16:
         rtol, atol = 3e-2, 5e-2
@@ -208,7 +208,7 @@ def test_rcps_mamba_block_wrapper(batch_size, seq_len, d_model, bidirectional, f
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
 def test_rcps_lm_head(batch_size, seq_len, d_model, dtype):
     # Set tolerance
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rtol, atol = (6e-4, 2e-3) if dtype == torch.float32 else (3e-3, 5e-3)
     if dtype == torch.bfloat16:
         rtol, atol = 3e-2, 5e-2
@@ -265,13 +265,13 @@ def test_rcps_lm_head(batch_size, seq_len, d_model, dtype):
 @pytest.mark.parametrize("n_layer", [1, 2, 3])
 @pytest.mark.parametrize("d_model", [128, 256])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16])
-@pytest.mark.parametrize("fused_add_norm", [True, False])
+@pytest.mark.parametrize("fured_add_norm", [True, False])
 @pytest.mark.parametrize("bidirectional", [False, True])
 @pytest.mark.parametrize("bidirectional_weight_tie", [False, True])
 def test_rcps_backbone(batch_size, seq_len, n_layer, d_model, dtype, fused_add_norm,
                        bidirectional, bidirectional_weight_tie):
     # Set tolerance
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     rtol, atol = (6e-4, 2e-3) if dtype == torch.float32 else (3e-3, 5e-3)
     if dtype == torch.bfloat16:
         rtol, atol = 3e-2, 5e-2

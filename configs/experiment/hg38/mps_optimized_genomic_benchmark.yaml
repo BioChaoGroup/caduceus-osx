@@ -1,0 +1,128 @@
+# @package _global_
+# MPS-optimized genomic benchmark experiment configuration for Apple Silicon
+
+defaults:
+  - /pipeline: genomic_benchmark
+  - /model: hf_caduceus
+  - /dataset: mps_optimized_genomic_benchmark
+  - override /scheduler: cosine_warmup_timm
+  - override /trainer: mps
+
+# Task configuration
+task:
+  loss:
+    _name_: cross_entropy
+
+# MPS-optimized trainer configuration
+trainer:
+  accelerator: mps
+  devices: 1
+  num_nodes: 1
+  accumulate_grad_batches: ${div_up:${train.global_batch_size}, ${eval:${trainer.devices} * ${dataset.batch_size} * ${trainer.num_nodes}}}
+  max_epochs: 100
+  precision: bf16-mixed  # Use bfloat16 mixed precision for MPS
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: norm
+  log_every_n_steps: 50
+  enable_progress_bar: true
+  enable_checkpointing: true
+  enable_model_summary: false
+  deterministic: false  # Allow non-deterministic operations for better performance
+  benchmark: true  # Enable cudnn benchmarking equivalent for MPS
+
+# Model configuration (inherits from hf_caduceus)
+model:
+  _name_: hf_caduceus
+  # MPS-specific model optimizations will be handled in the model code
+
+# Dataset configuration (uses MPS-optimized dataloader)
+dataset:
+  tokenizer_name: char
+  rc_aug: false
+  batch_size: 64  # Optimized batch size for MPS
+  num_workers: 0
+  pin_memory: false
+  drop_last: true
+
+# Scheduler configuration
+scheduler:
+  # COSINE TIMM with MPS-optimized settings
+  t_in_epochs: false
+  t_initial: ${eval:${div_up:${dataset.train_len}, ${train.global_batch_size}} * ${trainer.max_epochs}}
+  warmup_lr_init: 1e-6
+  warmup_t: ${eval:${div_up:${dataset.train_len}, ${train.global_batch_size}} * ${trainer.max_epochs} * 0.01}
+  lr_min: ${eval:0.1 * ${optimizer.lr}}
+
+# Optimizer configuration
+optimizer:
+  lr: 6e-4
+  weight_decay: 0.1
+
+# Training configuration with MPS optimizations
+train:
+  gpu_mem: 16.0  # Assume 16GB unified memory for Apple Silicon
+  seed: 2222
+  global_batch_size: ${dataset.batch_size}
+  cross_validation: true
+  remove_test_loader_in_eval: true
+  pretrained_model_strict_load: false
+  
+  # MPS-specific training optimizations
+  mps_optimizations: true
+  compile_model: false  # Disable torch.compile for MPS compatibility
+  
+  # Memory management
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1.0
+  
+  # Checkpointing
+  save_top_k: 3
+  monitor: val/accuracy
+  mode: max
+  
+  # Early stopping
+  patience: 10
+  min_delta: 0.001
+  
+  # Model loading configuration
+  pretrained_model_path: ???
+  pretrained_model_state_hook:
+    _name_: load_backbone
+    freeze_backbone: false
+
+# Callbacks configuration
+callbacks:
+  model_checkpoint_every_n_steps:
+    every_n_train_steps: 5000
+    save_top_k: 3
+    monitor: val/accuracy
+    mode: max
+    filename: "mps_optimized_epoch_{epoch:02d}_step_{step:06d}_acc_{val/accuracy:.4f}"
+  
+  early_stopping:
+    monitor: val/accuracy
+    patience: 10
+    mode: max
+    min_delta: 0.001
+    verbose: true
+  
+  learning_rate_monitor:
+    logging_interval: step
+    log_momentum: false
+  
+  # MPS-specific memory monitoring
+  device_stats_monitor:
+    cpu_stats: true
+
+# Logging configuration
+wandb:
+  mode: disabled  # Can be enabled if needed
+  group: "downstream/gb_cv5_mps_optimized"
+  job_type: "${dataset.dataset_name}"
+  name: "mps_optimized_${dataset.dataset_name}"
+  tags: ["mps-optimized", "apple-silicon", "genomic-benchmark"]
+
+# Hydra configuration
+hydra:
+  run:
+    dir: ./outputs/mps_optimized_${dataset.dataset_name}_${now:%Y-%m-%d_%H-%M-%S}

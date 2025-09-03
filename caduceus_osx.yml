@@ -13,6 +13,7 @@ dependencies:
   - torchmetrics=1.2.1
   - torchtext=0.17.0
   - torchvision=0.17.0
+  - mlx=0.5.1
   - pip:
       - biopython==1.81
       - datasets==2.15.0

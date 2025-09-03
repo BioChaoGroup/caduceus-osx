@@ -1,0 +1,54 @@
+# MPS-optimized genomic benchmark dataset configuration
+_name_: mps_optimized_genomic_benchmark
+_target_: src.dataloaders.mps_optimized_genomics.MPSOptimizedGenomicBenchmark
+
+# Dataset parameters
+dataset_name: dummy_mouse_enhancers_ensembl
+train_val_split_seed: 5
+tokenizer_name: char
+d_output: 2
+rc_aug: false
+conjoin_train: false
+conjoin_test: false
+
+# Sequence parameters
+max_length: 1024
+use_padding: true
+max_length_val: ${dataset.max_length}
+max_length_test: ${dataset.max_length}
+padding_side: left
+add_eos: false
+detokenize: false
+
+# MPS-optimized data loading parameters
+batch_size: 64  # Reduced for MPS memory efficiency
+batch_size_eval: ${dataset.batch_size}
+num_workers: 0  # Single worker for MPS
+pin_memory: false  # Disabled for MPS
+drop_last: true  # Consistent batch sizes
+shuffle: true
+shuffle_eval: false
+
+# Fault tolerance (disabled for MPS optimization)
+fault_tolerant: false
+ddp: false
+fast_forward_epochs: null
+fast_forward_batches: null
+
+# MPS-specific optimizations
+mps_optimizations:
+  prefetch_to_device: true
+  use_amp: true
+  memory_efficient_batching: true
+  prewarm_device: true
+
+# Data path
+dest_path: null  # Use default path
+
+# Validation parameters
+val_ratio: 0.0005
+val_split_seed: 2357
+val_only: false
+
+# Training length for scheduler calculations
+train_len: 1089  # dummy_mouse_enhancers_ensembl train length

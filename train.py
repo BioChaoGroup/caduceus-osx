@@ -14,6 +14,17 @@ import hydra
 import pytorch_lightning as pl
 import torch
 import wandb
+
+# Add device monitoring
+def monitor_device_placement(tensor, name=""):
+    """Debug function to track device placement"""
+    if hasattr(tensor, 'device'):
+        device_str = str(tensor.device)
+        if 'cpu' in device_str and 'mps' not in device_str:
+            print(f"WARNING: Tensor {name} is on CPU instead of MPS")
+        elif 'mps' in device_str:
+            print(f"OK: Tensor {name} is on MPS")
+    return tensor
 from omegaconf import OmegaConf
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
@@ -31,8 +42,8 @@ log = src.utils.train.get_logger(__name__)
 # Turn on TensorFloat32 (speeds up large model training substantially)
 import torch.backends
 
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
+#torch.backends.cuda.matmul.allow_tf32 = True
+#torch.backends.cudnn.allow_tf32 = True
 
 OmegaConf.register_new_resolver('eval', eval)
 OmegaConf.register_new_resolver('div_up', lambda x, y: (x + y - 1) // y)
@@ -151,14 +162,55 @@ class SequenceLightningModule(pl.LightningModule):
         self.encoder, self.decoder, self.model = None, None, None
         self.task, self.loss, self.loss_val = None, None, None
         self.metrics, self.train_torchmetrics, self.val_torchmetrics, self.test_torchmetrics = None, None, None, None
-        self.setup()
+        # Don't call setup() here, let Lightning handle it with proper device context
 
         self._state = None
         self.val_loader_names, self.test_loader_names = None, None
 
     def setup(self, stage=None):
+        # 从训练器配置推断设备类型
+        trainer_config = self.hparams.trainer
+        accelerator = trainer_config.get('accelerator', 'auto')
+        devices = trainer_config.get('devices', 'auto')
         if not self.hparams.train.disable_dataset:
-            self.dataset.setup()
+            self.dataset.setup(device=accelerator)
+
+        # MPS-specific optimizations (AMP is not supported on MPS, so we disable it)
+        if accelerator == 'mps' or (accelerator == 'auto' and torch.backends.mps.is_available()):
+
+            
+            # Disable AMP for MPS as it's not properly supported
+            # Force precision to 32-bit to ensure stability
+            if hasattr(self.hparams.trainer, 'precision'):
+                # Only override if AMP precision is set
+                if self.hparams.trainer.precision in ['16-mixed', 'bf16-mixed', '16', 'bf16']:
+                    self.hparams.trainer.precision = 32
+                    log.warning("AMP precision disabled on MPS device. Using FP32 for stability.")
+            else:
+                # Ensure precision is set to 32 if not configured
+                self.hparams.trainer.precision = 32
+                
+            log.info(f"MPS device detected. Using FP32 precision (AMP not supported on MPS).")
+            
+        # CUDA-specific AMP optimizations
+        elif accelerator == 'gpu' or accelerator == 'cuda' or (accelerator == 'auto' and torch.cuda.is_available()):
+            # Enable TensorFloat32 for faster training on Ampere+ GPUs
+            if hasattr(torch.backends.cuda, 'matmul') and hasattr(torch.backends.cuda.matmul, 'allow_tf32'):
+                torch.backends.cuda.matmul.allow_tf32 = True
+            if hasattr(torch.backends.cudnn, 'allow_tf32'):
+                torch.backends.cudnn.allow_tf32 = True
+                
+            # Configure AMP for CUDA if not already set
+            if not hasattr(self.hparams.trainer, 'precision'):
+                # Prefer bfloat16 on supported GPUs, otherwise use fp16
+                if hasattr(torch, 'bfloat16') and torch.bfloat16.is_available():
+                    self.hparams.trainer.precision = 'bf16-mixed'
+                else:
+                    self.hparams.trainer.precision = '16-mixed'
+            if not hasattr(self.hparams.trainer, 'amp_backend'):
+                self.hparams.trainer.amp_backend = 'native'
+                
+            log.info(f"CUDA device detected. Using precision: {self.hparams.trainer.precision}")
 
         # We need to set up the model in setup() because for some reason when training with DDP, one GPU uses much more
         # memory than the others.
@@ -697,7 +749,7 @@ def train(config):
             trainer.validate(model)
 
 
-@hydra.main(config_path="configs", config_name="config.yaml")
+@hydra.main(config_path="configs", config_name="config.yaml", version_base="1.1")
 def main(config: OmegaConf):
     # Process config:
     # - register evaluation resolver

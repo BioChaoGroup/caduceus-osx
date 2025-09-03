@@ -7,16 +7,10 @@ from functools import partial
 
 import torch
 import torch.nn as nn
-from flash_attn.utils.generation import GenerationMixin
 from mamba_ssm.models.config_mamba import MambaConfig
 from mamba_ssm.models.mixer_seq_simple import MixerModel
 from mamba_ssm.models.mixer_seq_simple import _init_weights as _init_weights_mamba
 from transformers import AutoModel
-
-try:
-    from flash_attn.ops.fused_dense import ColumnParallelLinear
-except ImportError:
-    ColumnParallelLinear = None
 
 
 from caduceus.configuration_caduceus import CaduceusConfig
@@ -25,7 +19,7 @@ from src.models.sequence.long_conv_lm import LMBackbone
 from src.models.sequence.long_conv_lm import _init_weights
 
 
-class DNAEmbeddingModel(nn.Module, GenerationMixin):
+class DNAEmbeddingModel(nn.Module):
     """DNA Embedding Model.
 
     Same as ConvLMHeadModel (in long_conv_lm.py), except no decoder head, we just pass back the hidden states for

@@ -94,7 +94,7 @@ class HG38(SequenceDataset):
         self.tokenizer = None
         self.vocab_size = 0
 
-    def setup(self, stage=None):
+    def setup(self, stage=None, device=None):
         """Set up the tokenizer and init the datasets."""
         # TODO instantiate with registry
 
@@ -114,9 +114,9 @@ class HG38(SequenceDataset):
 
         self.vocab_size = len(self.tokenizer)
 
-        self.init_datasets()  # creates the datasets.  You can also just create this inside the setup() here.
+        self.init_datasets(device=device)  # creates the datasets.  You can also just create this inside the setup() here.
 
-    def init_datasets(self):
+    def init_datasets(self, device=None):
         """Init the datasets (separate from the tokenizer)"""
 
         # Create all splits: torch datasets
@@ -132,7 +132,8 @@ class HG38(SequenceDataset):
                         rc_aug=self.rc_aug,
                         return_augs=False,
                         mlm=self.mlm,
-                        mlm_probability=self.mlm_probability, )
+                        mlm_probability=self.mlm_probability,
+                        device=device)
             for split, max_len in
             zip(["train", "valid", "test"], [self.max_length, self.max_length_val, self.max_length_test])
         ]
@@ -249,7 +250,7 @@ class GenomicBenchmark(HG38):
         if self.fast_forward_epochs is not None or self.fast_forward_batches is not None:
             assert ddp and fault_tolerant
 
-    def setup(self, stage=None):
+    def setup(self, stage=None, device=None):
         # TODO instantiate with registry
 
         if self.tokenizer_name == "char":
@@ -344,7 +345,7 @@ class NucleotideTransformer(HG38):
         if self.fast_forward_epochs is not None or self.fast_forward_batches is not None:
             assert ddp and fault_tolerant
 
-    def setup(self, stage=None):
+    def setup(self, stage=None, device=None):
         # TODO instantiate with registry
 
         if self.tokenizer_name == "char":

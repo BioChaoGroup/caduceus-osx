@@ -359,7 +359,8 @@ def dump_embeddings(args, dataset, model, device):
                 ):
                     for key in ["chromosome", "labels", "distance_to_nearest_tss", "tissue_embed"]:
                         storage_dict[key].append(batch[key].to("cpu", non_blocking=True))
-                    with torch.autocast(device_type="cuda", dtype=torch.float16):
+                    device_type = "mps" if torch.mps.is_available() else "cpu"
+                    with torch.autocast(device_type=device_type, dtype=torch.float16):
                         output_alt = model(batch["alt_input_ids"].to(device))
                         output_ref = model(batch["ref_input_ids"].to(device))
                         if args.rcps:
@@ -441,7 +442,10 @@ def main(args):
     dist.init_process_group("nccl")
     print(f"[RANK {dist.get_rank()}] Distributed initialized: rank {dist.get_rank()}")  # All processes print this
     # Setup device
-    device = torch.device(f"cuda:{dist.get_rank()}")
+    if torch.cuda.is_available():
+        device = torch.device(f"cuda:{dist.get_rank()}")
+    else:
+        device = torch.device("cpu")
     print(f"[RANK {dist.get_rank()}] Using device: {device}.")  # All processes print this
 
     # Init tokenizer

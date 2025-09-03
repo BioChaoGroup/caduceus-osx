@@ -27,6 +27,7 @@ source setup_env.sh
 
 
 # Run script
+export https_proxy=http://192.168.31.33:7897 http_proxy=http://192.168.31.33:7897 all_proxy=socks5://192.168.31.33:7897
 # shellcheck disable=SC2154
 WANDB_NAME="${DISPLAY_NAME}_lr-${LR}_batch_size-${BATCH_SIZE}_rc_aug-${RC_AUG}"
 for seed in $(seq 1 5); do
